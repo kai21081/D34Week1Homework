@@ -8,26 +8,31 @@
 
 import UIKit
 
-class UserTimelineViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class UserTimelineViewController: UITableViewController, UITableViewDataSource, UITableViewDelegate {
 
-  @IBOutlet weak var tableView: UITableView!
   
-  @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
+//  @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
   @IBOutlet weak var profileImageView: UIImageView!
   var tweets = [Tweet]()
   var tweet : Tweet!
+  
+  let uiRefreshControl = UIRefreshControl()
   
     override func viewDidLoad() {
       super.viewDidLoad()
       
       self.tableView.delegate = self
       self.tableView.dataSource = self
+      
       let tableCellNib = UINib(nibName: "TwitterTableViewCell", bundle: NSBundle.mainBundle())
       self.tableView.registerNib(tableCellNib, forCellReuseIdentifier: "TweetCell")
       self.tableView.estimatedRowHeight = 70
       self.tableView.rowHeight = UITableViewAutomaticDimension
-      self.activityIndicator.startAnimating()
+      //self.activityIndicator.startAnimating()
       self.tableView.userInteractionEnabled = false
+      uiRefreshControl.addTarget(self, action: "refreshTableView", forControlEvents: UIControlEvents.ValueChanged)
+      self.refreshControl = uiRefreshControl
+      
       
       profileImageView.image = tweet.profileImage
       TwitterService.sharedService.fetchUserTimeline(tweet.screen_name, { (data, errorDescription) -> Void in
@@ -36,7 +41,7 @@ class UserTimelineViewController: UIViewController, UITableViewDataSource, UITab
           //error handling
         }else{
           if data != nil{
-            self.activityIndicator.stopAnimating()
+            //self.activityIndicator.stopAnimating()
             self.tableView.userInteractionEnabled = true
             self.tweets = TweetJSONParser.tweetsFromJSONData(data!)
             self.tableView.reloadData()
@@ -47,13 +52,37 @@ class UserTimelineViewController: UIViewController, UITableViewDataSource, UITab
     })
   }
   
+  func  refreshTableView(){
+    if let firstTweet = tweets.first{
+      TwitterService.sharedService.fetchTweetsSinceThan(firstTweet, { (data, errorDescription) -> Void in
+        if errorDescription != nil{
+          println(errorDescription)
+          //error handling
+        }else{
+          if data != nil{
+            let newTweets = TweetJSONParser.tweetsFromJSONData(data!)
+            if !newTweets.isEmpty{
+              for var i = newTweets.count-1; i >= 0; --i{
+                self.tweets.insert(newTweets[i], atIndex: 0)
+              }
+              self.tableView.reloadData()
+              
+            }
+            self.refreshControl?.endRefreshing()
+          }
+        }
+      })
+    }
+
+  }
+  
   //MARK:
   //MARK: UITableViewDataSource
-  func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+  override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
     return tweets.count
   }
   
-  func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+  override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
     var cell = tableView.dequeueReusableCellWithIdentifier("TweetCell", forIndexPath: indexPath) as TwitterTableViewCell
     let selectedTweet = tweets[indexPath.row]
     cell.tweetTextLabel.text = selectedTweet.text
@@ -89,7 +118,7 @@ class UserTimelineViewController: UIViewController, UITableViewDataSource, UITab
   //MARK:
   //MARK: UITableViewDelegate
   
-  func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+  override func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
     
   }
 
