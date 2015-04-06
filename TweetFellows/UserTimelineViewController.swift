@@ -62,6 +62,27 @@ class UserTimelineViewController: UIViewController, UITableViewDataSource, UITab
     cell.favoritesCountLabel.text = selectedTweet.favoriteCount
 
     cell.profileImageView.image = tweet.profileImage
+    
+    //infinite scrolling
+    if tweets.count - indexPath.row == 10{
+      if let lastTweet = tweets.last{
+        TwitterService.sharedService.fetchTweetsOlderThan(lastTweet, { (data, errorDescription) -> Void in
+          if errorDescription != nil{
+            println(errorDescription)
+            //error handling
+          }else{
+            if data != nil{
+              let newTweets = TweetJSONParser.tweetsFromJSONData(data!)
+              for var i = 0; i < newTweets.count; ++i{
+                self.tweets.append(newTweets[i])
+              }
+              self.tableView.reloadData()
+            }
+          }
+        })
+      }
+
+    }
     return cell
   }
   
